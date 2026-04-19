@@ -1,51 +1,37 @@
 import { supabase } from '../lib/supabase';
 
-// Create order and order items from cart
-export const createOrder = async (uid, cartItems, amount, shippingAddress) => {
-  // Insert order
-  const { data: order, error: orderErr } = await supabase
-    .from('orders')
-    .insert([
-      { 
-        user_id: uid, 
-        amount, 
-        shipping_address: shippingAddress,
-        status: 'Confirmed',
-        payment_status: 'Pending'
-      }
-    ])
-    .select()
-    .single();
-
-  if (orderErr) throw orderErr;
-
-  // Insert order items
-  const orderItemsData = cartItems.map(item => ({
-    order_id: order.id,
-    product_id: item.product_id,
-    qty: item.qty,
-    price: item.product.price
-  }));
-
-  const { error: itemsErr } = await supabase
-    .from('order_items')
-    .insert(orderItemsData);
-
-  if (itemsErr) throw itemsErr;
-
-  return order;
-};
-
-export const getUserOrders = async (uid) => {
+// Notice the new 'paymentDetails' parameter at the end
+export const createOrder = async (userId, cartItems, total, shippingAddress, paymentDetails = {}) => {
+  
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*, product:products(*))')
-    .eq('user_id', uid)
-    .order('created_at', { ascending: false });
+    .insert([
+      {
+        user_id: userId,
+        items: cartItems,
+        total_amount: total,
+        shipping_name: shippingAddress.name,
+        shipping_address: shippingAddress.address,
+        // The new Razorpay fields injected here:
+        payment_id: paymentDetails.paymentId || null,
+        status: paymentDetails.status || 'Pending'
+      }
+    ]);
+
+  if (error) throw error;
+  return data;
+};
+export const getUserOrders = async (userId) => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false }); // Shows newest orders first
 
   if (error) {
-    console.error('Error fetching orders:', error);
-    return [];
+    console.error("Error fetching user orders:", error);
+    throw error;
   }
+  
   return data;
 };
