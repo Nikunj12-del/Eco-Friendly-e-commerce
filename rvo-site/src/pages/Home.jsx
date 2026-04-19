@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiShoppingBag, FiStar, FiTruck, FiBox, FiFeather, FiCheckCircle, FiHeart } from 'react-icons/fi';
+import { useProduct } from '../context/ProductContext';
+import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
+import { toast } from 'react-hot-toast';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 40 },
@@ -13,10 +17,33 @@ const staggerContainer = {
 };
 
 const Home = () => {
+  const { products } = useProduct();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { addToCart } = useCart();
+
+  // Pick first 4 products for Bestsellers
+  const bestsellers = products.slice(0, 4);
+
+  const handleAddToCart = (e, product) => {
+    e.preventDefault();
+    addToCart(product, 1);
+    toast.success(`${product.name} added to cart!`);
+  };
+
+  const handleToggleWishlist = (e, product) => {
+    e.preventDefault();
+    toggleWishlist(product);
+    if (!isInWishlist(product.id)) {
+      toast.success(`${product.name} added to wishlist!`);
+    } else {
+      toast.success(`${product.name} removed from wishlist`);
+    }
+  };
+
   return (
     <div className="w-full">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center bg-ivory-white overflow-hidden pt-36">
+      <section className="relative min-h-[90vh] flex items-center bg-ivory-white overflow-hidden py-36">
         <div className="absolute inset-0 z-0 opacity-10" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/clean-textile.png")' }}></div>
         <div className="section-padding relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="max-w-2xl">
@@ -108,20 +135,37 @@ const Home = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {[1, 2, 3, 4].map((item) => (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} transition={{ delay: item * 0.1 }} viewport={{ once: true }} key={item} className="bg-white rounded-xl overflow-hidden shadow-md group">
-              <div className="relative h-64 overflow-hidden">
-                <img src={`https://images.unsplash.com/photo-1544816155-12df9643f36${item}?auto=format&fit=crop&w=400&q=80`} alt="Product" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <button className="absolute top-4 right-4 p-2 bg-white/80 rounded-full text-forest-green hover:text-premium-gold hover:bg-white transition-colors">
-                  <FiHeart />
+          {bestsellers.map((product, i) => (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} viewport={{ once: true }} key={product.id} className="bg-white rounded-xl overflow-hidden shadow-md group border border-forest-green/5">
+              <Link to={`/product/${product.id}`} className="block relative h-64 overflow-hidden bg-gray-50">
+                <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                {!product.inStock && (
+                  <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] flex items-center justify-center">
+                    <span className="bg-forest-green text-white px-4 py-2 font-semibold uppercase text-xs tracking-widest rounded-full shadow-lg">Out of Stock</span>
+                  </div>
+                )}
+              </Link>
+              <div className="p-6 relative">
+                <button 
+                  onClick={(e) => handleToggleWishlist(e, product)}
+                  className={`absolute -top-6 right-4 p-3 rounded-full shadow-lg transition-all z-10 ${isInWishlist(product.id) ? 'bg-forest-green text-white hover:bg-forest-green/90' : 'bg-white text-forest-green hover:text-premium-gold'}`}
+                >
+                  <FiHeart className={isInWishlist(product.id) ? 'fill-current' : ''} />
                 </button>
-              </div>
-              <div className="p-6">
-                <h3 className="font-serif text-xl border-b border-gray-100 pb-3 mb-3 text-forest-green">Classic Canvas Tote</h3>
-                <div className="flex justify-between items-center">
-                  <span className="font-sans font-semibold text-lg text-forest-green">₹1,299</span>
-                  <button className="text-premium-gold hover:text-forest-green transition-colors flex items-center space-x-2">
-                    <FiShoppingBag /> <span>Add</span>
+                <div className="mb-4 pt-2">
+                  <Link to={`/product/${product.id}`}>
+                    <h3 className="font-serif text-lg text-forest-green hover:text-premium-gold transition-colors line-clamp-1">{product.name}</h3>
+                  </Link>
+                  <p className="text-sm text-forest-green/60 mt-1">{product.category}</p>
+                </div>
+                <div className="flex justify-between items-center border-t border-gray-100 pt-4">
+                  <span className="font-sans font-semibold text-xl text-forest-green">₹{product.price}</span>
+                  <button 
+                    disabled={!product.inStock}
+                    onClick={(e) => handleAddToCart(e, product)}
+                    className={`flex items-center space-x-2 font-medium transition-colors ${product.inStock ? 'text-premium-gold hover:text-forest-green' : 'text-gray-400 cursor-not-allowed'}`}
+                  >
+                    <FiShoppingBag /> <span>{product.inStock ? 'Add' : 'Sold Out'}</span>
                   </button>
                 </div>
               </div>
@@ -158,7 +202,7 @@ const Home = () => {
         <div className="section-padding max-w-3xl border border-premium-gold/30 p-12 rounded-2xl bg-white/5 backdrop-blur-sm">
           <h2 className="text-3xl font-serif mb-4 text-premium-gold">Join the Conscious Community</h2>
           <p className="mb-8 font-sans text-ivory-white/80">Subscribe to receive updates on our latest sustainable collections and exclusive offers.</p>
-          <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto">
+          <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto" onSubmit={(e) => { e.preventDefault(); toast.success('Subscribed successfully!'); }}>
             <input type="email" placeholder="Your email address" className="flex-grow px-6 py-3 rounded-full bg-ivory-white/10 border border-ivory-white/20 focus:outline-none focus:border-premium-gold text-white placeholder-white/50" required />
             <button type="submit" className="px-8 py-3 bg-premium-gold text-forest-green font-semibold rounded-full hover:bg-white transition-colors whitespace-nowrap">
               Subscribe
